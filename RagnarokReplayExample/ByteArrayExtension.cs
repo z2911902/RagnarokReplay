@@ -34,25 +34,25 @@ namespace RagnarokReplayExample
                     else
                         b.Append("   ");
                 }
-                b.Append(" ");
+                //b.Append(" ");
 
-                for (int n = 0; n < 8; n++)
-                {
-                    int o = i + n;
-                    if (o < length)
-                        b.AppendFormat("{0}", ToHexChar(buffer[o]));
-                    else
-                        b.Append(" ");
-                }
-                b.Append(" ");
-                for (int n = 0; n < 8; n++)
-                {
-                    int o = i + n + 8;
-                    if (o < length)
-                        b.AppendFormat("{0}", ToHexChar(buffer[o]));
-                    else
-                        b.Append(" ");
-                }
+                //for (int n = 0; n < 8; n++)
+                //{
+                //    int o = i + n;
+                //    if (o < length)
+                //        b.AppendFormat("{0}", ToHexChar(buffer[o]));
+                //    else
+                //        b.Append(" ");
+                //}
+                //b.Append(" ");
+                //for (int n = 0; n < 8; n++)
+                //{
+                //    int o = i + n + 8;
+                //    if (o < length)
+                //        b.AppendFormat("{0}", ToHexChar(buffer[o]));
+                //    else
+                //        b.Append(" ");
+                //}
                 b.AppendLine();
             }
 

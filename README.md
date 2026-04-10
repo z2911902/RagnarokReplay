@@ -1,3 +1,3 @@
 # RagnarokReplay
 
-Using this library to parse replays for my Ragnarok Online fansite divine-pride.net.
+此分支專為我的ROItemSearchApp客製化解譯程式

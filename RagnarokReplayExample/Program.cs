@@ -1,10 +1,7 @@
 ﻿using RagnarokReplay;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace RagnarokReplayExample
 {
@@ -12,53 +9,91 @@ namespace RagnarokReplayExample
     {
         static void Main(string[] args)
         {
+            if (args.Length < 1)
+            {
+                Console.WriteLine("Usage: RagnarokReplayExample <input.rrf> [outputPath]");
+                return;
+            }
+
+            string inputPath = args[0];
+
+            // 取輸入資料夾
+            string inputDir = Path.GetDirectoryName(inputPath);
+
+            // 取不含副檔名的檔名
+            string baseName = Path.GetFileNameWithoutExtension(inputPath);
+
+            string outputPath;
+
+            // ★ 新增：如果有指定輸出路徑
+            if (args.Length >= 2)
+            {
+                string userPath = args[1];
+
+                // 如果是資料夾
+                if (Directory.Exists(userPath) ||
+                    userPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                {
+                    Directory.CreateDirectory(userPath);
+                    outputPath = Path.Combine(userPath, baseName + ".txt");
+                }
+                else
+                {
+                    // 視為完整檔名
+                    string outDir = Path.GetDirectoryName(userPath);
+                    if (!string.IsNullOrEmpty(outDir))
+                        Directory.CreateDirectory(outDir);
+
+                    outputPath = userPath;
+                }
+            }
+            else
+            {
+                // 原本行為：與 RRF 同資料夾
+                outputPath = Path.Combine(inputDir, baseName + ".txt");
+            }
+
+            // ★ StringBuilder：高速暫存輸出
+            var sb = new StringBuilder(100_000_000);
+
             var replay = new Replay();
-            replay.LoadFile(Path.Combine("Replay", "woe1103-1.rrf"));
+            replay.LoadFile(inputPath);
 
             foreach (var chunk in replay.ChunkContainers)
             {
+                sb.AppendLine($"ContainerType {chunk.ContainerType}");
+
                 switch (chunk.ContainerType)
                 {
-                    case ContainerType.PacketStream: // packets
-                        // chunk.Data contains the packet data for each packet
+                    case ContainerType.PacketStream:
                         foreach (var packet in chunk.Data)
                         {
-                            switch (packet.Header)
+                            if (!Enum.IsDefined(typeof(HEADER), packet.Header))
                             {
-                                default:
-                                    if (!Enum.IsDefined(typeof(HEADER), packet.Header))
-                                    {
-                                        Console.WriteLine($"[+{ConvertMsToTime(packet.Time)}] Unknown packet {packet.Header}");
-                                    }
-                                    else
-                                    {
-                                        //Console.WriteLine($"[+{ConvertMsToTime(packet.Time)}] packet {(HEADER)packet.Header}");
-                                    }
-                                    break;
+                                sb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] Unknown packet {packet.Header}");
+                            }
+                            else
+                            {
+                                sb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] packet {(HEADER)packet.Header}");
+                                sb.AppendLine(packet.Data.Hexdump());
                             }
                         }
                         break;
 
-                    case ContainerType.InitialPackets: // packets
+                    case ContainerType.InitialPackets:
                         foreach (var packet in chunk.Data)
                         {
-                            switch (packet.Id)
+                            if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)packet.Id))
                             {
-                                default:
-                                    if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)packet.Id))
-                                    {
-                                        Console.WriteLine($"Unknown initial packet: {packet.Id}");
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"Unparsed initial packet: {(ReplayOpCodes)packet.Id}");
-                                    }
-                                    break;
+                                sb.AppendLine($"Unknown initial packet: {packet.Id}");
+                            }
+                            else
+                            {
+                                sb.AppendLine($"Unparsed initial packet: {(ReplayOpCodes)packet.Id}");
                             }
                         }
                         break;
 
-                    // variables
                     case ContainerType.ReplayData:
                     case ContainerType.Session:
                     case ContainerType.Status:
@@ -67,70 +102,96 @@ namespace RagnarokReplayExample
                     case ContainerType.Items:
                     case ContainerType.UnknownContainingPet:
                     case ContainerType.Efst:
-                        Console.WriteLine($"ContainerType {chunk.ContainerType}");
                         foreach (var entry in chunk.Data)
                         {
-                            switch (entry.Id)
+                            if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)entry.Id))
                             {
-                                default:
-                                    if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)entry.Id))
-                                    {
-                                        Console.WriteLine($"Unknown opcode {entry.Id}");
-                                        Console.WriteLine(entry.Data.Hexdump());
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"[Chunk {chunk.ContainerType}] Unparsed opcode {(ReplayOpCodes)entry.Id}, Length={entry.Length}");
-                                    }
-                                    break;
+                                sb.AppendLine($"Unknown opcode {entry.Id}");
+                                sb.AppendLine(entry.Data.Hexdump());
+                            }
+                            else
+                            {
+                                sb.AppendLine($"[Chunk {chunk.ContainerType}] Unparsed opcode {(ReplayOpCodes)entry.Id}, Length={entry.Length}");
+
+                                switch ((ReplayOpCodes)entry.Id)
+                                {
+                                    case ReplayOpCodes.Charactername:
+                                    case ReplayOpCodes.Mapname:
+                                        string str = Encoding.UTF8.GetString(entry.Data).TrimEnd('\0');
+                                        sb.AppendLine($"    → Text: {str}");
+                                        sb.AppendLine("    → Raw hex:");
+                                        sb.AppendLine(entry.Data.Hexdump());
+                                        break;
+
+                                    case ReplayOpCodes.PosX:
+                                    case ReplayOpCodes.PosY:
+                                    case ReplayOpCodes.Direction:
+                                    case ReplayOpCodes.Sex:
+                                    case ReplayOpCodes.Region:
+                                    case ReplayOpCodes.Service:
+                                    case ReplayOpCodes.Maptype:
+                                    case ReplayOpCodes.Length:
+                                        if (entry.Data.Length >= 4)
+                                        {
+                                            int value = BitConverter.ToInt32(entry.Data, 0);
+                                            sb.AppendLine($"    → Value: {value}");
+                                        }
+                                        else
+                                        {
+                                            sb.AppendLine("    → Data too short to convert to int");
+                                        }
+                                        break;
+
+                                    default:
+                                        sb.AppendLine("    → Raw hex:");
+                                        sb.AppendLine(entry.Data.Hexdump());
+                                        break;
+                                }
                             }
                         }
-
-                        Console.WriteLine();
+                        sb.AppendLine();
                         break;
 
-                    default: // variables - duplicated to check what containerType this could be
-                        Console.WriteLine($"Unhandled container type {chunk.ContainerType}");
+                    default:
+                        sb.AppendLine($"Unhandled container type {chunk.ContainerType}");
                         foreach (var entry in chunk.Data)
                         {
-                            switch (entry.Id)
+                            if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)entry.Id))
                             {
-                                default:
-                                    if (!Enum.IsDefined(typeof(ReplayOpCodes), (short)entry.Id))
-                                    {
-                                        Console.WriteLine($"Unknown opcode {entry.Id}");
-                                        Console.WriteLine(entry.Data.Hexdump());
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"[Chunk {chunk.ContainerType}] Unparsed opcode {(ReplayOpCodes)entry.Id}, Length={entry.Length}");
-                                    }
-                                    break;
+                                sb.AppendLine($"Opcode ID={entry.Id} (0x{entry.Id:X4}), Length={entry.Length}");
+                                sb.AppendLine($"Unknown opcode {entry.Id}");
+                                sb.AppendLine(entry.Data.Hexdump());
+                            }
+                            else
+                            {
+                                sb.AppendLine($"Opcode ID={entry.Id} (0x{entry.Id:X4}), Length={entry.Length}");
+                                sb.AppendLine($"[Chunk {chunk.ContainerType}] Unparsed opcode {(ReplayOpCodes)entry.Id}, Length={entry.Length}");
+                                sb.AppendLine(entry.Data.Hexdump());
                             }
                         }
-
-                        Console.WriteLine();
+                        sb.AppendLine();
                         break;
                 }
             }
 
-            //Console.WriteLine("Done");
-            //Console.ReadKey();
+            // ★ 一次性寫出
+            File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
         }
 
         private static string ConvertMsToTime(int ms)
         {
             var uSec = ms % 1000;
-            ms = ms / 1000;
+            ms /= 1000;
 
             var seconds = ms % 60;
-            ms = ms / 60;
+            ms /= 60;
 
             var minutes = ms % 60;
-            ms = ms / 60;
+            ms /= 60;
 
             var hours = ms % 60;
-            return string.Format("{0:00}:{1:00}:{2:00}:{3:000}", hours, minutes, seconds, uSec);
+
+            return $"{hours:00}:{minutes:00}:{seconds:00}:{uSec:000}";
         }
     }
 }

@@ -2,3 +2,8 @@
 .vs/RagnarokReplay/v15
 bin
 obj
+/.vs
+/RagnarokReplay/.vs
+/RagnarokReplayExample/.vs
+/RagnarokReplayExample/.vscode
+/RagnarokReplay/.vscode

@@ -54,7 +54,11 @@ namespace RagnarokReplayExample
             }
 
             // ★ StringBuilder：高速暫存輸出
+            // 主輸出：先放一般內容
             var sb = new StringBuilder(100_000_000);
+
+            // 時間戳內容：最後再接上
+            var timedSb = new StringBuilder(100_000_000);
 
             var replay = new Replay();
             replay.LoadFile(inputPath);
@@ -70,12 +74,13 @@ namespace RagnarokReplayExample
                         {
                             if (!Enum.IsDefined(typeof(HEADER), packet.Header))
                             {
-                                sb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] Unknown packet {packet.Header}");
+                                timedSb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] Unknown packet {packet.Header}");
+                                //timedSb.AppendLine(packet.Data.Hexdump()); //未知封包隱藏
                             }
                             else
                             {
-                                sb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] packet {(HEADER)packet.Header}");
-                                sb.AppendLine(packet.Data.Hexdump());
+                                timedSb.AppendLine($"[+{ConvertMsToTime(packet.Time)}] packet {(HEADER)packet.Header}");
+                                timedSb.AppendLine(packet.Data.Hexdump());
                             }
                         }
                         break;
@@ -173,6 +178,9 @@ namespace RagnarokReplayExample
                         break;
                 }
             }
+            sb.AppendLine();
+            sb.AppendLine("===== Timestamped Packets =====");
+            sb.Append(timedSb);
 
             // ★ 一次性寫出
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);

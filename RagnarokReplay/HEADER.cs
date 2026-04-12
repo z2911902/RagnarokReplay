@@ -1450,6 +1450,10 @@
         HEADER_ZC_NOTIFY_EXP2 = 0x0acc,
         HEADER_0ACD = 0x0acd,
         HEADER_0ACE = 0x0ace,
+        HEADER_物品掉落 = 0x0add,
+        HEADER_物品撿起 = 0x0b41,
+
+
 
         HEADER_LAST,
     }

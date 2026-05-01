@@ -1452,6 +1452,9 @@
         HEADER_0ACE = 0x0ace,
         HEADER_物品掉落 = 0x0add,
         HEADER_物品撿起 = 0x0b41,
+        HEADER_倉庫_物品 = 0x0b09,
+        HEADER_倉庫_裝備 = 0x0b39,
+
 
 
 
